@@ -1,9 +1,10 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 apply plugin: 'com.jfrog.bintray'
+apply plugin: 'com.github.dcendents.android-maven'
 
 
-ext.artifactId = 'zxing-android-embedded'
+//ext.artifactId = 'zxing-android-embedded'
 
 dependencies {
     api project.zxingCore
@@ -60,56 +61,120 @@ android {
     }
 }
 
-task sourceJar(type: Jar) {
-    classifier = 'sources'
-    from android.sourceSets.main.java.srcDirs
+ext {
+    bintrayRepo = 'zxing-android'
+    bintrayName = 'zxing-android'
+
+    publishedGroupId = 'ru.litres'
+    libraryName = 'zxing-android-embedded'
+    artifact = 'zxing-android-embedded'
+
+    libraryDescription = 'ZXing library modified from journeyapps for Android'
+
+    siteUrl = 'https://github.com/Litres/zxing-android-embedded'
+    gitUrl = 'https://github.com/Litres/zxing-android-embedded.git'
+
+    libraryVersion = '3.6.1'
+
+    developerId = 'shramov'
+    developerName = 'ShramovAlex'
+    developerEmail = 'shramov.alexandr@gmail.com'
+
+    licenseName = 'The Apache Software License, Version 2.0'
+    licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+    allLicenses = ["Apache-2.0"]
 }
 
-publishing {
-    publications {
-        // We need this check to cover Android Studio gradle sync
-        if(project.tasks.findByPath('bundleRelease') != null) {
-            maven(MavenPublication) {
-                artifact bundleRelease
-                artifactId project.artifactId
+group = publishedGroupId
 
-                artifact sourceJar
+install {
+    repositories.mavenInstaller {
+        // This generates POM.xml with proper parameters
+        pom {
+            project {
+                packaging 'aar'
+                groupId publishedGroupId
+                artifactId artifact
 
-                pom.withXml {
-                    // HACK to add dependencies to POM.
-                    // When maven-publish can do this automatically for Android projects,
-                    // remove this section.
-                    def deps = asNode().appendNode('dependencies')
+                // Add your description here
+                name libraryName
+                description libraryDescription
+                url siteUrl
 
-                    project.configurations.compile.allDependencies.each { dep ->
-                        def node = deps.appendNode('dependency')
-                        node.appendNode('groupId', dep.group)
-                        node.appendNode('artifactId', dep.name)
-                        node.appendNode('version', dep.version)
-                        node.appendNode('scope', 'compile')
+                // Set your license
+                licenses {
+                    license {
+                        name licenseName
+                        url licenseUrl
+                    }
+                }
+                developers {
+                    developer {
+                        id developerId
+                        name developerName
+                        email developerEmail
                     }
 
                 }
+                scm {
+                    connection gitUrl
+                    developerConnection gitUrl
+                    url siteUrl
 
+                }
             }
         }
     }
 }
 
-// To release, place bintray_user and bintray_key properties in ~/.gradle/gradle.properties,
-// and run ./gradlew clean assembleRelease bintrayUpload
+version = libraryVersion
 
-if(project.hasProperty('bintray_user') && project.hasProperty('bintray_key')) {
-    bintray {
-        user = bintray_user
-        key = bintray_key
-        publications = ['maven']
-        publish = true
-        pkg {
-            userOrg = 'journeyapps'
-            repo = 'maven'
-            name = 'zxing-android-embedded'
-        }
+if (project.hasProperty("android")) { // Android libraries
+    task sourcesJar(type: Jar) {
+        classifier = 'sources'
+        from android.sourceSets.main.java.srcDirs
+    }
+
+    task javadoc(type: Javadoc) {
+        source = android.sourceSets.main.java.srcDirs
+        classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    }
+} else { // Java libraries
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
     }
 }
 
+artifacts {
+    archives sourcesJar
+}
+
+// Bintray
+Properties properties = new Properties()
+properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+bintray {
+    user = properties.getProperty("bintray.user")
+    key = properties.getProperty("bintray.apikey")
+
+    configurations = ['archives']
+    pkg {
+        repo = bintrayRepo
+        name = bintrayName
+        desc = libraryDescription
+        websiteUrl = siteUrl
+        vcsUrl = gitUrl
+        licenses = allLicenses
+        publish = true
+        publicDownloadNumbers = true
+        version {
+            desc = libraryDescription
+            gpg {
+                sign = true //Determines whether to GPG sign the files. The default is false
+                passphrase = properties.getProperty("bintray.gpg.password")
+                //Optional. The passphrase for GPG signing'
+            }
+        }
+    }
+}
