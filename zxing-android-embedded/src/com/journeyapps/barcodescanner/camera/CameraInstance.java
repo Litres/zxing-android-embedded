@@ -285,7 +285,7 @@ public class CameraInstance {
      *
      * @return the CameraManager used
      */
-    protected CameraManager getCameraManager() {
+    public CameraManager getCameraManager() {
         return cameraManager;
     }
 
